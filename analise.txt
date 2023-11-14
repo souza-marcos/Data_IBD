@@ -1,0 +1,106 @@
+
+--------------------------------------
+Arquivo: Processamento Petroleo
+
+Assunto: Volume de Petróleo Refinado (1990 - 2021)
+Entidades: 
+    - Empresa(CNPJ): 21 
+    - Local: 18 
+    - Extração: 975
+
+Registros: 975 
+
+Colunas:
+Mês/Ano,Razão Social,CNPJ,Instalação,Região,Estado,Município,Capacidade Autorizada (m³/d),Volume Processado  (m³/d),FUE (%)
+
+-> Empresa(Razão Social,CNPJ,Instalação)
+-> Localidade(Região,Estado,Município)
+-> Processamento(Mês/Ano,Capacidade Autorizada (m³/d),Volume Processado  (m³/d),FUE (%))    *FUE é atributo derivado
+
+
+
+--------------------------------------
+Arquivo: Producao_Derivados_de_petroleo_por_refinaria
+Assunto: Produção de Derivados de petróleo por refinarias
+Entidades: 
+    - Refinarias(CNPJ): 22
+    - Local: 18
+    - Derivados: 21
+
+Registros: 8386 
+
+Colunas: 
+Mês/Ano,Razão Social,CNPJ,Instalação,Região,Estado,Município,Produto,Produção
+
+-> Empresa(Razão Social,CNPJ,Instalação)
+-> Localidade(Região,Estado,Município)
+-> Produto(nome, medição)
+-> Produção(mes/ano, quantidade)
+
+--------------------------------------
+Arquivo: Producao_Derivados_Central_Petroquimica
+Assunto: Produção de derivados de petróleo por Centrais Petroquímicas
+Entidades:
+    - Central Petroquimica(CNPJ): 3    <-> (Nome): 1
+    - Local: 3
+    - Derivados: 3          => GASOLINA A COMUM, GASOLINA A PREMIUM, GLP
+
+Registros: 385 
+
+
+Colunas:
+Mês/Ano,Razão Social,CNPJ,Região,Estado,Município,Produto,Produção
+
+-> Empresa(Razão Social,CNPJ,Instalação)
+-> Localidade(Região,Estado,Município)
+-> Produto(nome, medição)
+-> Produção(mes/ano, quantidade)
+
+--------------------------------------
+Arquivo: Producao_Derivados_Outros_Produtores
+Assunto: Produção de derivados de petróleo por outros tipos de produtores
+Entidades:
+    - Produtores(NOME): 6
+    - Produtos: 3           => GASOLINA A, SOLVENTE, ÓLEO DIESEL
+
+Registros: 4463 
+
+
+Colunas: ANO;MÊS;PRODUTOR;PRODUTO;PRODUÇÃO
+
+-> Produtor(Nome)
+-> Produto(nome, medição)
+-> Produção(mes/ano, quantidade)
+
+
+-------------------------------------
+Arquivo: Producao_Derivados_Xisto
+Assunto: Produção de derivados de xisto
+Entidades:
+    - Produtores(NOME): 1
+    - Produtos: 5           => DIESEL, GLP, NAFTA, OUTROS NÃO ENERGÉTICOS, OLEO COMBUSTÍVEL
+
+Registros: 1361
+
+
+Colunas: ANO;MÊS;UNIDADE DA FEDERAÇÃO;PRODUTOR;PRODUTO;PRODUÇÃO
+
+-> Produtor(Nome)
+-> Produto(nome, medição)
+-> Produção(mes/ano, quantidade)
+
+--------------------------------------
+Arquivo: Producao_Gas_Combustivel_por_Refinaria
+Assunto: Produção de gás combustível
+Entidades:
+    - Refinarias(NOME): 14
+    - Produtos: 3           
+
+Registros: 3950
+
+
+Colunas: ANO;MÊS;UNIDADE DA FEDERAÇÃO;REFINARIA;PRODUTO;PRODUÇÃO
+
+-> Refinaria(Nome)
+-> Produto(nome, medição) *(sempre)=> GAS_COMBUSTIVEL, m³
+-> Produção(mes/ano, quantidade)
