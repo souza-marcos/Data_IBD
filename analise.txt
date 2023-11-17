@@ -104,3 +104,6 @@ Colunas: ANO;MÊS;UNIDADE DA FEDERAÇÃO;REFINARIA;PRODUTO;PRODUÇÃO
 -> Refinaria(Nome)
 -> Produto(nome, medição) *(sempre)=> GAS_COMBUSTIVEL, m³
 -> Produção(mes/ano, quantidade)
+
+Central Petroquímica é semanticamente identica a uma refinaria
+Central petroquimica tem nome opcional (implicito)
