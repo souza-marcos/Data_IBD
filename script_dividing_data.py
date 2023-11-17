@@ -262,10 +262,142 @@ def insertPetroquimicas():
     df = pd.read_sql('SELECT * FROM CentralPetroquimica', conn1)
     print(df)
 
+def insertAutorizacao():
+
+    conn1.execute('DROP TABLE IF EXISTS Autorizacao;')
+
+    query = '''
+
+    SELECT `Mês/Ano`, `CNPJ`, `Capacidade Autorizada (m³/d)`
+        FROM ProcessamentoPetroleo
+    '''
+
+    df_base = pd.read_sql(query, conn)
+
+    # Renaming Columns
+    df_base.rename(columns={'Mês/Ano': 'DataConcessao'}, inplace=True)
+    df_base.rename(columns={'Capacidade Autorizada (m³/d)': 'Capacidade'}, inplace=True)
+    
+    df_base['DataConcessao'] = pd.to_datetime(df_base['DataConcessao'], format='%m/%Y')
+
+    # Group by 'CNPJ' and 'Capacidade Autorizada (m³/d)', and then aggregate using the first 'Mês/Ano'
+    df_base = df_base.groupby(['CNPJ', 'Capacidade']).agg({'DataConcessao': 'first'}).reset_index()
+
+    # Add a index column
+    df_base['AutoID'] = df_base.index
+
+    foreignKeyconstraint = 'PRAGMA foreign_keys = 0;'
+    conn1.execute(foreignKeyconstraint)
+
+    # Create a new table in the database databaseRight.db
+    create_table_query = '''
+
+    CREATE TABLE Autorizacao (
+        AutoID INTEGER PRIMARY KEY,
+        DataConcessao DATE NOT NULL,
+        CNPJ TEXT NOT NULL,
+        Capacidade INTEGER NOT NULL,
+        FOREIGN KEY (CNPJ) REFERENCES Refinaria (CNPJ)
+    );
+
+
+    '''
+    conn1.execute(create_table_query)
+
+    # Insert into a table Produto in the database databaseRight.db with a sql query
+    base_insert_query = '''
+    INSERT INTO Autorizacao (AutoID, DataConcessao, CNPJ, Capacidade) VALUES
+    '''    
+
+    
+    for row in df_base.itertuples():
+        insert_query = base_insert_query + "({}, '{}', '{}', {})".format(row.AutoID, row.DataConcessao, row.CNPJ, row.Capacidade)
+        conn1.execute(insert_query)
+
+
+    df = pd.read_sql('SELECT * FROM Autorizacao', conn1)
+    print(df)
+
+def insertRegitroProcessamento(): 
+
+    refinarias = pd.read_sql('SELECT * FROM Refinaria', conn1)
+    autorizacoes = pd.read_sql('SELECT * FROM Autorizacao', conn1)
+
+    conn1.execute('DROP TABLE IF EXISTS Processamento;')
+
+    query = '''
+
+    SELECT *
+        FROM ProcessamentoPetroleo
+    '''
+
+    df_base = pd.read_sql(query, conn)
+
+    df_base.rename(columns={'Município': 'Municipio'}, inplace=True)
+    df_base.rename(columns={'Região': 'Regiao'}, inplace=True)
+    df_base.rename(columns={'Razão Social': 'RazaoSocial'}, inplace=True)
+    df_base.rename(columns={'Capacidade Autorizada (m³/d)': 'Capacidade'}, inplace=True)
+    df_base.rename(columns={'Mês/Ano': 'Data'}, inplace=True)
+    df_base.rename(columns={'Volume Processado  (m³/d)': 'Volume'}, inplace=True)
+
+
+    df_base['Data'] = pd.to_datetime(df_base['Data'], format='%m/%Y')
+    df_base['Data'] = df_base['Data'].dt.strftime('%Y-%m-%d')
+
+    autorizacoes['DataConcessao'] = pd.to_datetime(autorizacoes['DataConcessao'], format='%Y-%m-%d %H:%M:%S')
+    autorizacoes['DataConcessao'] = autorizacoes['DataConcessao'].dt.strftime('%Y-%m-%d')
+
+    # Ordering the authorization by Date  
+    autorizacoes.sort_values(by=['DataConcessao'], inplace=True)
+
+    # print(autorizacoes)
+    # print(refinarias)
+
+    def getAutorizacao(row):
+        res = autorizacoes[(autorizacoes['CNPJ'] == str(row.CNPJ)) & (autorizacoes['DataConcessao'] <= str(row.Data))].max()['AutoID'] 
+        return res
+
+    df_base['AutoID'] = df_base.apply(getAutorizacao, axis=1)
+
+    foreignKeyconstraint = 'PRAGMA foreign_keys = 0;'
+    conn1.execute(foreignKeyconstraint)
+
+    # Create a new table in the database databaseRight.db
+    create_table_query = '''
+
+    CREATE TABLE Processamento (
+        CNPJ INTEGER NOT NULL,
+        AutoID INTEGER NOT NULL,
+        Data DATE NOT NULL,
+        Volume INTEGER NOT NULL,
+        PRIMARY KEY (CNPJ, AutoID, Data),
+        FOREIGN KEY (CNPJ) REFERENCES Refinaria (CNPJ),
+        FOREIGN KEY (AutoID) REFERENCES Autorizacao (AutoID)
+    );
+
+    '''
+    conn1.execute(create_table_query)
+
+    # Insert into a table Produto in the database databaseRight.db with a sql query
+    base_insert_query = '''
+    INSERT INTO Processamento (CNPJ, AutoID, Data, Volume) VALUES
+    '''  
+
+    print(df_base.columns)  
+
+    for row in df_base.itertuples():
+        insert_query = base_insert_query + "({}, {}, '{}', {})".format(row.CNPJ, row.AutoID, row.Data, row.Volume)
+        conn1.execute(insert_query)
+
+
+    df = pd.read_sql('SELECT * FROM Processamento', conn1)
+    print(df)
 
 # insertProdutos()
 # insertRefinarias()
-insertPetroquimicas()
+# insertPetroquimicas()
+# insertAutorizacao()
+insertRegitroProcessamento()
 
 conn.close()
 
