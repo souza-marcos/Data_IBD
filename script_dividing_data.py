@@ -9,6 +9,7 @@ c1 = conn1.cursor()
 df : pd.DataFrame
 
 def insertProdutos():
+    conn1.execute('DROP TABLE IF EXISTS Produto;')
 
     query = '''
 
@@ -33,16 +34,16 @@ def insertProdutos():
 
 
     # Create a new table in the database databaseRight.db
-    # create_table_query = '''
+    create_table_query = '''
 
-    # CREATE TABLE Produto (
-    #     ProdID INTEGER PRIMARY KEY,
-    #     Nome TEXT NOT NULL,
-    #     Unidade TEXT NOT NULL
-    # );
+    CREATE TABLE Produto (
+        ProdID INTEGER PRIMARY KEY,
+        Nome TEXT NOT NULL,
+        Unidade TEXT NOT NULL
+    );
 
-    # '''
-    # conn1.execute(create_table_query)
+    '''
+    conn1.execute(create_table_query)
 
     # Insert into a table Produto in the database databaseRight.db with a sql query
     base_insert_query = '''
@@ -51,10 +52,12 @@ def insertProdutos():
 
     for row in df_base.itertuples():
         insert_query = base_insert_query + "({}, '{}', '{}')".format(row.ProdID, row.Nome, row.Unidade)
-        print(insert_query)
+        # print(insert_query)
         conn1.execute(insert_query)
 
 def insertStates():
+
+    conn1.execute('DROP TABLE IF EXISTS Estado;')
 
     # EstadoID, Estado, Regiao
 
@@ -93,12 +96,12 @@ def insertStates():
 
     for row in df_base.itertuples():
         insert_query = base_insert_query + "({}, '{}', '{}')".format(row.EstadoID, row.Estado, row.Regiao)
-        print(insert_query)
+        # print(insert_query)
         conn1.execute(insert_query)
 
 
     df = pd.read_sql('SELECT * FROM Estado', conn1)
-    print(df)
+    # print(df)
 
 def insertRefinarias():
 
@@ -153,7 +156,7 @@ def insertRefinarias():
 
     for row in df_base.itertuples():
         insert_query = base_insert_query + "({}, '{}', '{}', '{}', '{}')".format(row.EmpID, row.CNPJ, row.Instalacao, row.RazaoSocial, row.Municipio) 
-        print(insert_query)
+        # print(insert_query)
         conn1.execute(insert_query)
 
 
@@ -179,12 +182,12 @@ def insertRefinarias():
 
     for row in df_base.itertuples():
         insert_query = base_insert_query + "({}, '{}', {}, {})".format(row.EmpID, row.RazaoSocial, states[states['Estado'] == row.Estado]['EstadoID'].values[0], 0)
-        print(insert_query)
+        # print(insert_query)
         conn1.execute(insert_query)
 
 
     df = pd.read_sql('SELECT * FROM Refinaria', conn1) 
-    print(df)
+    # print(df)
 
 def insertPetroquimicas():
 
@@ -251,7 +254,7 @@ def insertPetroquimicas():
 
     for row in df_base.itertuples():
         insert_query = base_insert_query + "({}, '{}', {}, {})".format(row.EmpID, row.RazaoSocial, states[states['Estado'] == row.Estado]['EstadoID'].values[0], 0)
-        print(insert_query)
+        # print(insert_query)
         conn1.execute(insert_query)
 
 
@@ -315,7 +318,7 @@ def insertAutorizacao():
 
 
     df = pd.read_sql('SELECT * FROM Autorizacao', conn1)
-    print(df)
+    # print(df)
 
 def insertRegitroProcessamento(): 
 
@@ -381,7 +384,7 @@ def insertRegitroProcessamento():
     INSERT INTO Processamento (CNPJ, AutoID, Data, Volume) VALUES
     '''  
 
-    print(df_base.columns)  
+    # print(df_base.columns)  
 
     for row in df_base.itertuples():
         insert_query = base_insert_query + "({}, {}, '{}', {})".format(row.CNPJ, row.AutoID, row.Data, row.Volume)
@@ -389,7 +392,7 @@ def insertRegitroProcessamento():
 
 
     df = pd.read_sql('SELECT * FROM Processamento', conn1)
-    print(df)
+    # print(df)
 
 def insertRegistroProducaoRefinaria():
 
@@ -461,7 +464,7 @@ def insertRegistroProducaoRefinaria():
         conn1.execute(insert_query)
 
     df = pd.read_sql('SELECT * FROM Producao', conn1)
-    print(df)
+    # print(df)
 
 def insertRegistroProducaoPetroquimica():
 
@@ -492,7 +495,7 @@ def insertRegistroProducaoPetroquimica():
     produtos = pd.read_sql('SELECT ProdID, Nome FROM Produto', conn1)
 
 
-    mapping_ProdsID = { # BUGHERE
+    mapping_ProdsID = { 
         'Gasolina A': produtos[produtos['Nome'] == 'Gasolina A ']['ProdID'].values[0],
         'Gasolina A Premium': produtos[produtos['Nome'] == 'Gasolina A Premium ']['ProdID'].values[0],
         'GLP': produtos[produtos['Nome'] == 'GLP ']['ProdID'].values[0]
@@ -520,55 +523,56 @@ def insertRegistroProducaoPetroquimica():
 
     for row in df_base.itertuples():
         insert_query = base_insert_query + "({}, {}, '{}', {})".format(row.EmpID, row.ProdID, row.Data, row.Quantidade)
-        print(insert_query)
+        # print(insert_query)
         conn1.execute(insert_query)
 
     df = pd.read_sql('SELECT * FROM Producao', conn1)
-    print(df)
+    # print(df)
 
-# def insertFileDerivadosOutrosProdutores():
+def insertFileDerivadosOutrosProdutores():
     
-#     # Inserindo na mao o produto 'OLEO DIESEL'
-#     lastid = pd.read_sql('SELECT MAX(ProdID) FROM Produto', conn1).values[0][0]
-#     conn1.execute('INSERT INTO Produto (ProdID, Nome, Unidade) VALUES ({}, "Oleo Diesel", "m³");'.format(lastid + 1))
+    # Inserindo na mao o produto 'OLEO DIESEL'
+    lastid = pd.read_sql('SELECT MAX(ProdID) FROM Produto', conn1).values[0][0]
+    conn1.execute('INSERT INTO Produto (ProdID, Nome, Unidade) VALUES ({}, "Oleo Diesel", "m³");'.format(lastid + 1))
 
-#     query = '''
+    query = '''
 
-#     SELECT `ANO`, `MÊS`, `PRODUTOR`,`PRODUTO`, `PRODUÇÃO`
-#         FROM ProducaoDerivadosOutrosProdutores
-#         WHERE `PRODUÇÃO` != 0 
-#     '''
+    SELECT `ANO`, `MÊS`, `PRODUTOR`,`PRODUTO`, `PRODUÇÃO`
+        FROM ProducaoDerivadosOutrosProdutores
+        WHERE `PRODUÇÃO` != 0 
+    '''
 
-#     df_base = pd.read_sql(query, conn)
+    df_base = pd.read_sql(query, conn)
 
-#     # Concatenating the columns 'ANO' and 'MÊS' in a new column called 'Data'
-#     df_base['Data'] = df_base['ANO'].astype(str) + '-' + df_base['MÊS'].astype(str) + '-01'
+    # Concatenating the columns 'ANO' and 'MÊS' in a new column called 'Data'
+    df_base['Data'] = df_base['ANO'].astype(str) + '-' + df_base['MÊS'].astype(str) + '-01'
 
-#     # Convertin the column 'Data' to datetime
-#     df_base['Data'] = pd.to_datetime(df_base['Data'], format='%Y-%m-%d')
+    # Convertin the column 'Data' to datetime
+    df_base['Data'] = pd.to_datetime(df_base['Data'], format='%Y-%m-%d')
 
 
-#     maping = {
-#         'GASOLINA A': 'Gasolina A',
-#         'SOLVENTE': 'Solventes',
-#         'OLEO DIESEL': 'Oleo Diesel',
-#     }
+    maping = {
+        'GASOLINA A': 'Gasolina A',
+        'SOLVENTE': 'Solventes',
+        'OLEO DIESEL': 'Oleo Diesel',
+    }
 
-#     df_base['Produto'] = df_base['PRODUTO'].map(maping)
+    df_base['Produto'] = df_base['PRODUTO'].map(maping)
     
 
-#     produtores = df_base['PRODUTOR'].unique()
+    produtores = df_base['PRODUTOR'].unique()
 
 
 
 # insertProdutos()
+# insertStates()
 # insertRefinarias()
 # insertPetroquimicas()
 # insertAutorizacao()
 # insertRegitroProcessamento()
-# insertRegistroProducao()
+# insertRegistroProducaoRefinaria()
 # insertRegistroProducaoPetroquimica()
-# insertFileDerivadosOutrosProdutores()
+insertFileDerivadosOutrosProdutores()
 
 conn.close()
 
