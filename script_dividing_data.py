@@ -1,5 +1,4 @@
 import pandas as pd
-# Connection with the database sqlite3
 import sqlite3
 conn = sqlite3.connect('database.db')
 c = conn.cursor()
@@ -54,9 +53,6 @@ def insertProdutos():
         insert_query = base_insert_query + "({}, '{}', '{}')".format(row.ProdID, row.Nome, row.Unidade)
         print(insert_query)
         conn1.execute(insert_query)
-
-
-    df = pd.read_sql('SELECT * FROM Produto', conn1)
 
 def insertStates():
 
@@ -259,8 +255,11 @@ def insertPetroquimicas():
         conn1.execute(insert_query)
 
 
-    df = pd.read_sql('SELECT * FROM CentralPetroquimica', conn1)
-    print(df)
+
+
+
+    # df = pd.read_sql('SELECT * FROM CentralPetroquimica', conn1)
+    # print(df)
 
 def insertAutorizacao():
 
@@ -320,7 +319,6 @@ def insertAutorizacao():
 
 def insertRegitroProcessamento(): 
 
-    refinarias = pd.read_sql('SELECT * FROM Refinaria', conn1)
     autorizacoes = pd.read_sql('SELECT * FROM Autorizacao', conn1)
 
     conn1.execute('DROP TABLE IF EXISTS Processamento;')
@@ -393,14 +391,186 @@ def insertRegitroProcessamento():
     df = pd.read_sql('SELECT * FROM Processamento', conn1)
     print(df)
 
+def insertRegistroProducaoRefinaria():
+
+    conn1.execute('DROP TABLE IF EXISTS Producao;')
+
+    query = '''
+
+    SELECT `CNPJ`, `Mês/Ano`, `Produto`, `Produção`
+        FROM ProdutosDerivadosRefinaria
+    '''
+
+    df_base = pd.read_sql(query, conn)
+
+    df_base.rename(columns={'Mês/Ano': 'Data'}, inplace=True)
+    df_base.rename(columns={'Produção': 'Quantidade'}, inplace=True)
+
+    df_base['Data'] = pd.to_datetime(df_base['Data'], format='%m/%Y')
+    df_base['Data'] = df_base['Data'].dt.strftime('%Y-%m-%d')
+
+    df_base['Produto'] = df_base['Produto'].str.slice_replace(start=-4, stop=-1, repl='').str.replace(')', '')
+
+
+    # Linking the ProdID to the df_base
+    produtos = pd.read_sql('SELECT * FROM Produto', conn1)
+
+    def getProdutoID(row):
+        res = produtos[produtos['Nome'] == str(row.Produto)]['ProdID'].values[0]
+        return res
+
+    df_base['ProdID'] = df_base.apply(getProdutoID, axis=1)
+
+    # Linking the EmpID to the df_base
+    refinarias = pd.read_sql('SELECT EmpID, CNPJ FROM Refinaria', conn1)
+
+    def getEmpresaID(row):
+        res = refinarias[refinarias['CNPJ'] == str(row.CNPJ)]['EmpID'].values[0]
+        return res
+    
+    df_base['EmpID'] = df_base.apply(getEmpresaID, axis=1)
+
+
+
+    foreignKeyconstraint = 'PRAGMA foreign_keys = 0;'
+    conn1.execute(foreignKeyconstraint)
+
+    # Create a new table in the database databaseRight.db
+    create_table_query = '''
+
+    CREATE TABLE Producao (
+        EmpID INTEGER NOT NULL,
+        ProdID INTEGER NOT NULL,
+        Data DATE NOT NULL,
+        Quantidade INTEGER NOT NULL,
+        PRIMARY KEY (EmpID, ProdID, Data),
+        FOREIGN KEY (EmpID) REFERENCES Empresa (EmpID),
+        FOREIGN KEY (ProdID) REFERENCES Produto (ProdID)
+    );
+
+    '''
+    conn1.execute(create_table_query)
+
+    # Insert into a table Produto in the database databaseRight.db with a sql query
+    base_insert_query = '''
+    INSERT INTO Producao (EmpID, ProdID, Data, Quantidade) VALUES
+    '''  
+
+    for row in df_base.itertuples():
+        insert_query = base_insert_query + "({}, {}, '{}', {})".format(row.EmpID, row.ProdID, row.Data, row.Quantidade)
+        conn1.execute(insert_query)
+
+    df = pd.read_sql('SELECT * FROM Producao', conn1)
+    print(df)
+
+def insertRegistroProducaoPetroquimica():
+
+    query = '''
+
+    SELECT `CNPJ`, `Mês/Ano`, `Produto`, `Produção`
+        FROM ProducaoDerivadosCentralPetroquimica
+    '''
+
+    df_base = pd.read_sql(query, conn)
+
+    df_base.rename(columns={'Mês/Ano': 'Data'}, inplace=True)
+    df_base.rename(columns={'Produção': 'Quantidade'}, inplace=True)
+
+    df_base['Data'] = pd.to_datetime(df_base['Data'], format='%m/%Y')
+    df_base['Data'] = df_base['Data'].dt.strftime('%Y-%m-%d')
+
+    maping = {
+        'GASOLINA A COMUM': 'Gasolina A',
+        'GASOLINA A PREMIUM': 'Gasolina A Premium',
+        'GLP': 'GLP'
+    }
+
+    df_base['Produto'] = df_base['Produto'].map(maping)
+
+
+    # Linking the ProdID to the df_base
+    produtos = pd.read_sql('SELECT ProdID, Nome FROM Produto', conn1)
+
+
+    mapping_ProdsID = { # BUGHERE
+        'Gasolina A': produtos[produtos['Nome'] == 'Gasolina A ']['ProdID'].values[0],
+        'Gasolina A Premium': produtos[produtos['Nome'] == 'Gasolina A Premium ']['ProdID'].values[0],
+        'GLP': produtos[produtos['Nome'] == 'GLP ']['ProdID'].values[0]
+    }
+
+
+    df_base['ProdID'] = df_base['Produto'].map(mapping_ProdsID)
+
+    # Linking the EmpID to the df_base
+    petroquimicas = pd.read_sql('SELECT EmpID, CNPJ FROM CentralPetroquimica', conn1)
+
+    def getEmpresaID(row):
+        res = petroquimicas[petroquimicas['CNPJ'] == str(row.CNPJ)]['EmpID'].values[0]
+        return res
+    
+    df_base['EmpID'] = df_base.apply(getEmpresaID, axis=1)
+
+    foreignKeyconstraint = 'PRAGMA foreign_keys = 0;'
+    conn1.execute(foreignKeyconstraint)
+
+    # Insert into a table Produto in the database databaseRight.db with a sql query
+    base_insert_query = '''
+    INSERT OR IGNORE INTO Producao (EmpID, ProdID, Data, Quantidade) VALUES
+    '''  
+
+    for row in df_base.itertuples():
+        insert_query = base_insert_query + "({}, {}, '{}', {})".format(row.EmpID, row.ProdID, row.Data, row.Quantidade)
+        print(insert_query)
+        conn1.execute(insert_query)
+
+    df = pd.read_sql('SELECT * FROM Producao', conn1)
+    print(df)
+
+# def insertFileDerivadosOutrosProdutores():
+    
+#     # Inserindo na mao o produto 'OLEO DIESEL'
+#     lastid = pd.read_sql('SELECT MAX(ProdID) FROM Produto', conn1).values[0][0]
+#     conn1.execute('INSERT INTO Produto (ProdID, Nome, Unidade) VALUES ({}, "Oleo Diesel", "m³");'.format(lastid + 1))
+
+#     query = '''
+
+#     SELECT `ANO`, `MÊS`, `PRODUTOR`,`PRODUTO`, `PRODUÇÃO`
+#         FROM ProducaoDerivadosOutrosProdutores
+#         WHERE `PRODUÇÃO` != 0 
+#     '''
+
+#     df_base = pd.read_sql(query, conn)
+
+#     # Concatenating the columns 'ANO' and 'MÊS' in a new column called 'Data'
+#     df_base['Data'] = df_base['ANO'].astype(str) + '-' + df_base['MÊS'].astype(str) + '-01'
+
+#     # Convertin the column 'Data' to datetime
+#     df_base['Data'] = pd.to_datetime(df_base['Data'], format='%Y-%m-%d')
+
+
+#     maping = {
+#         'GASOLINA A': 'Gasolina A',
+#         'SOLVENTE': 'Solventes',
+#         'OLEO DIESEL': 'Oleo Diesel',
+#     }
+
+#     df_base['Produto'] = df_base['PRODUTO'].map(maping)
+    
+
+#     produtores = df_base['PRODUTOR'].unique()
+
+
+
 # insertProdutos()
 # insertRefinarias()
 # insertPetroquimicas()
 # insertAutorizacao()
-insertRegitroProcessamento()
+# insertRegitroProcessamento()
+# insertRegistroProducao()
+# insertRegistroProducaoPetroquimica()
+# insertFileDerivadosOutrosProdutores()
 
 conn.close()
-
 
 conn1.commit()
 conn1.close()
