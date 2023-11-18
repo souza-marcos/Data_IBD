@@ -78,7 +78,7 @@ Arquivo: Producao_Derivados_Xisto
 Assunto: Produção de derivados de xisto
 Entidades:
     - Produtores(NOME): 1
-    - Produtos: 5           => DIESEL, GLP, NAFTA, OUTROS NÃO ENERGÉTICOS, OLEO COMBUSTÍVEL
+    - Produtos: 5           => DIESEL (Oleo Diesel), GLP V, NAFTA V, OUTROS NÃO ENERGÉTICOS X, OLEO COMBUSTÍVEL V
 
 Registros: 1361
 
