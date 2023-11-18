@@ -660,9 +660,14 @@ def insertingXisto():
 
     c1.execute('SELECT MAX(EmpID) FROM Empresa')
     lastid = c1.fetchone()[0] 
+
+    # Getting the id of the state of Paraná
+    last_id_state = pd.read_sql('SELECT MAX(EstadoID) FROM Estado', conn1).values[0][0]
+    conn1.execute('INSERT INTO Estado (EstadoID, Estado, Regiao) VALUES ({}, "Paraná", "SUL");'.format(last_id_state + 1))
+
    # Inserindo esses registros na tabela Empresa
 
-    conn1.execute('INSERT INTO Empresa (EmpID, Nome, ProdutorIndependente) VALUES ({}, "SIX", 1);'.format(lastid + 1))
+    conn1.execute('INSERT INTO Empresa (EmpID, EstadoID, Nome, ProdutorIndependente) VALUES ({}, {}, "SIX", 1);'.format(lastid + 1,last_id_state + 1))
 
     empID = lastid + 1
 
@@ -679,7 +684,7 @@ def insertingXisto():
 
     # df = pd.read_sql('SELECT * FROM Producao', conn1)
     # print(df)
-
+"""
 def insertingGasCombustivel():
     lastid = pd.read_sql('SELECT MAX(ProdID) FROM Produto', conn1).values[0][0]
     conn1.execute('INSERT INTO Produto (ProdID, Nome, Unidade) VALUES ({}, "Outros não Energéticos", "");'.format(lastid + 1))
@@ -743,7 +748,7 @@ def insertingGasCombustivel():
     for row in df_base.itertuples():
         insert_query = base_insert_query + "({}, {}, '{}', '{}')".format(empID, row.ProdID, row.Data, row.Quantidade)
         conn1.execute(insert_query)
-
+"""
 
 
 
