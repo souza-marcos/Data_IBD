@@ -166,7 +166,7 @@ def insertRefinarias():
     CREATE TABLE Empresa (
         EmpID INTEGER PRIMARY KEY,
         Nome TEXT NOT NULL,
-        EstadoID INTEGER NOT NULL,
+        EstadoID INTEGER,
         ProdutorIndependente INTEGER NOT NULL,
         FOREIGN KEY (EstadoID) REFERENCES Estado (EstadoID)
     );
@@ -181,7 +181,7 @@ def insertRefinarias():
     '''
 
     for row in df_base.itertuples():
-        insert_query = base_insert_query + "({}, '{}', {}, {})".format(row.EmpID, row.RazaoSocial, states[states['Estado'] == row.Estado]['EstadoID'].values[0], 0)
+        insert_query = base_insert_query + "({}, '{}', {}, {})".format(row.EmpID, row.Instalacao, states[states['Estado'] == row.Estado]['EstadoID'].values[0], 0)
         # print(insert_query)
         conn1.execute(insert_query)
 
@@ -445,7 +445,7 @@ def insertRegistroProducaoRefinaria():
         EmpID INTEGER NOT NULL,
         ProdID INTEGER NOT NULL,
         Data DATE NOT NULL,
-        Quantidade INTEGER NOT NULL,
+        Quantidade REAL NOT NULL,
         PRIMARY KEY (EmpID, ProdID, Data),
         FOREIGN KEY (EmpID) REFERENCES Empresa (EmpID),
         FOREIGN KEY (ProdID) REFERENCES Produto (ProdID)
@@ -544,35 +544,219 @@ def insertFileDerivadosOutrosProdutores():
 
     df_base = pd.read_sql(query, conn)
 
-    # Concatenating the columns 'ANO' and 'MÊS' in a new column called 'Data'
-    df_base['Data'] = df_base['ANO'].astype(str) + '-' + df_base['MÊS'].astype(str) + '-01'
 
-    # Convertin the column 'Data' to datetime
-    df_base['Data'] = pd.to_datetime(df_base['Data'], format='%Y-%m-%d')
-
-
-    maping = {
-        'GASOLINA A': 'Gasolina A',
-        'SOLVENTE': 'Solventes',
-        'OLEO DIESEL': 'Oleo Diesel',
+    month_mapping = {
+        'JAN': '01',
+        'FEV': '02',
+        'MAR': '03',
+        'ABR': '04',
+        'MAI': '05',
+        'JUN': '06',
+        'JUL': '07',
+        'AGO': '08',
+        'SET': '09',
+        'OUT': '10',
+        'NOV': '11',
+        'DEZ': '12'
     }
 
-    df_base['Produto'] = df_base['PRODUTO'].map(maping)
+    df_base['MÊS'] = df_base['MÊS'].map(month_mapping)
+    df_base['Data'] = df_base['ANO'].astype(str) + '-' + df_base['MÊS'].astype(str) + '-01'
+    df_base['Data'] = pd.to_datetime(df_base['Data'], format='%Y-%m-%d')
+
+    produtos = pd.read_sql('SELECT ProdID, Nome FROM Produto', conn1)
+
+    prods_mapping = {
+        'GASOLINA A': produtos[produtos['Nome'] == 'Gasolina A ']['ProdID'].values[0],
+        'SOLVENTE': produtos[produtos['Nome'] == 'Solventes ']['ProdID'].values[0],
+        'OLEO DIESEL': produtos[produtos['Nome'] == 'Oleo Diesel']['ProdID'].values[0],
+    }
+
+    df_base['ProdID'] = df_base['PRODUTO'].map(prods_mapping)
+
+
+    produtores = df_base['PRODUTOR'].drop_duplicates().reset_index(drop=True).to_frame()
+
+    c1.execute('SELECT MAX(EmpID) FROM Empresa')
+    lastid = c1.fetchone()[0] 
+
+    # Add a index column
+    produtores['EmpID'] = produtores.index 
+    produtores['EmpID'] = produtores['EmpID'].map(lambda x: x + (lastid + 1))
+
+    # Inserindo esses registros na tabela Empresa
+    base_insert_query = '''
+    INSERT INTO Empresa (EmpID, Nome, ProdutorIndependente) VALUES
+    '''
+
+    for row in produtores.itertuples():
+        insert_query = base_insert_query + "({}, '{}', {})".format(row.EmpID, row.PRODUTOR, 1)
+        conn1.execute(insert_query)
+
+    df_base['EmpID'] = df_base['PRODUTOR'].map(produtores.set_index('PRODUTOR')['EmpID'])
+
+    base_insert_query = '''
     
+    INSERT INTO Producao (EmpID, ProdID, Data, Quantidade) VALUES
+    '''
 
-    produtores = df_base['PRODUTOR'].unique()
+    # Renaming column 'PRODUÇÃO' to 'Quantidade'
+    df_base.rename(columns={'PRODUÇÃO': 'Quantidade'}, inplace=True)
+
+    for row in df_base.itertuples():
+        insert_query = base_insert_query + "({}, {}, '{}', '{}')".format(row.EmpID, row.ProdID, row.Data, row.Quantidade)
+        conn1.execute(insert_query)
+
+    df = pd.read_sql('SELECT * FROM Producao', conn1)
+    # print(df)
+
+def insertingXisto():
+
+    # Inserindo na mao o produto 'OLEO DIESEL'
+    lastid = pd.read_sql('SELECT MAX(ProdID) FROM Produto', conn1).values[0][0]
+    conn1.execute('INSERT INTO Produto (ProdID, Nome, Unidade) VALUES ({}, "Outros não Energéticos", "");'.format(lastid + 1))
+
+    query = '''
+
+    SELECT `ANO`, `MÊS`, `UNIDADE DA FEDERAÇÃO` as UF, PRODUTOR, PRODUTO, PRODUÇÃO as Quantidade
+        FROM ProducaoDerivadosXisto
+        WHERE `PRODUÇÃO` != 0 
+    '''
+
+    df_base = pd.read_sql(query, conn)
+
+
+    month_mapping = {
+        'JAN': '01',
+        'FEV': '02',
+        'MAR': '03',
+        'ABR': '04',
+        'MAI': '05',
+        'JUN': '06',
+        'JUL': '07',
+        'AGO': '08',
+        'SET': '09',
+        'OUT': '10',
+        'NOV': '11',
+        'DEZ': '12'
+    }
+
+    df_base['MÊS'] = df_base['MÊS'].map(month_mapping)
+    df_base['Data'] = df_base['ANO'].astype(str) + '-' + df_base['MÊS'].astype(str) + '-01'
+    df_base['Data'] = pd.to_datetime(df_base['Data'], format='%Y-%m-%d')
+
+    produtos = pd.read_sql('SELECT ProdID, Nome FROM Produto', conn1)
+
+    prods_mapping = {
+        'OUTROS NÃO ENERGÉTICOS': produtos[produtos['Nome'] == 'Outros não Energéticos']['ProdID'].values[0],
+        'NAFTA': produtos[produtos['Nome'] == 'Nafta ']['ProdID'].values[0],
+        'GLP' : produtos[produtos['Nome'] == 'GLP ']['ProdID'].values[0],
+        'DIESEL': produtos[produtos['Nome'] == 'Oleo Diesel']['ProdID'].values[0],
+        'ÓLEO COMBUSTÍVEL': produtos[produtos['Nome'] == 'Óleo Combustível ']['ProdID'].values[0],
+    }
+
+    df_base['ProdID'] = df_base['PRODUTO'].map(prods_mapping)
+
+
+    c1.execute('SELECT MAX(EmpID) FROM Empresa')
+    lastid = c1.fetchone()[0] 
+   # Inserindo esses registros na tabela Empresa
+
+    conn1.execute('INSERT INTO Empresa (EmpID, Nome, ProdutorIndependente) VALUES ({}, "SIX", 1);'.format(lastid + 1))
+
+    empID = lastid + 1
+
+    base_insert_query = '''
+    
+    INSERT INTO Producao (EmpID, ProdID, Data, Quantidade) VALUES
+    '''
+
+
+    for row in df_base.itertuples():
+        # print(empID, row.ProdID, row.Data, row.Quantidade)
+        insert_query = base_insert_query + "({}, {}, '{}', '{}')".format(empID, row.ProdID, row.Data, row.Quantidade)
+        conn1.execute(insert_query)
+
+    # df = pd.read_sql('SELECT * FROM Producao', conn1)
+    # print(df)
+
+def insertingGasCombustivel():
+    lastid = pd.read_sql('SELECT MAX(ProdID) FROM Produto', conn1).values[0][0]
+    conn1.execute('INSERT INTO Produto (ProdID, Nome, Unidade) VALUES ({}, "Outros não Energéticos", "");'.format(lastid + 1))
+
+    query = '''
+
+    SELECT `ANO`, `MÊS`, `UNIDADE DA FEDERAÇÃO` as UF, PRODUTOR, PRODUTO, PRODUÇÃO as Quantidade
+        FROM ProducaoDerivadosXisto
+        WHERE `PRODUÇÃO` != 0 
+    '''
+
+    df_base = pd.read_sql(query, conn)
+
+
+    month_mapping = {
+        'JAN': '01',
+        'FEV': '02',
+        'MAR': '03',
+        'ABR': '04',
+        'MAI': '05',
+        'JUN': '06',
+        'JUL': '07',
+        'AGO': '08',
+        'SET': '09',
+        'OUT': '10',
+        'NOV': '11',
+        'DEZ': '12'
+    }
+
+    df_base['MÊS'] = df_base['MÊS'].map(month_mapping)
+    df_base['Data'] = df_base['ANO'].astype(str) + '-' + df_base['MÊS'].astype(str) + '-01'
+    df_base['Data'] = pd.to_datetime(df_base['Data'], format='%Y-%m-%d')
+
+    produtos = pd.read_sql('SELECT ProdID, Nome FROM Produto', conn1)
+
+    prods_mapping = {
+        'OUTROS NÃO ENERGÉTICOS': produtos[produtos['Nome'] == 'Outros não Energéticos']['ProdID'].values[0],
+        'NAFTA': produtos[produtos['Nome'] == 'Nafta ']['ProdID'].values[0],
+        'GLP' : produtos[produtos['Nome'] == 'GLP ']['ProdID'].values[0],
+        'DIESEL': produtos[produtos['Nome'] == 'Oleo Diesel']['ProdID'].values[0],
+        'ÓLEO COMBUSTÍVEL': produtos[produtos['Nome'] == 'Óleo Combustível ']['ProdID'].values[0],
+    }
+
+    df_base['ProdID'] = df_base['PRODUTO'].map(prods_mapping)
+
+
+    c1.execute('SELECT MAX(EmpID) FROM Empresa')
+    lastid = c1.fetchone()[0] 
+   # Inserindo esses registros na tabela Empresa
+
+    conn1.execute('INSERT INTO Empresa (EmpID, Nome, ProdutorIndependente) VALUES ({}, "SIX", 1);'.format(lastid + 1))
+
+    empID = lastid + 1
+
+    base_insert_query = '''
+    
+    INSERT INTO Producao (EmpID, ProdID, Data, Quantidade) VALUES
+    '''
+
+
+    for row in df_base.itertuples():
+        insert_query = base_insert_query + "({}, {}, '{}', '{}')".format(empID, row.ProdID, row.Data, row.Quantidade)
+        conn1.execute(insert_query)
 
 
 
-# insertProdutos()
-# insertStates()
-# insertRefinarias()
-# insertPetroquimicas()
-# insertAutorizacao()
-# insertRegitroProcessamento()
-# insertRegistroProducaoRefinaria()
-# insertRegistroProducaoPetroquimica()
+
+insertProdutos()
+insertStates()
+insertRefinarias()
+insertPetroquimicas()
+insertAutorizacao()
+insertRegitroProcessamento()
+insertRegistroProducaoRefinaria()
+insertRegistroProducaoPetroquimica()
 insertFileDerivadosOutrosProdutores()
+insertingXisto()
 
 conn.close()
 
