@@ -17,7 +17,7 @@ conn = sqlite3.connect('database.db')
 # # Group by 'CNPJ' and 'Capacidade Autorizada (m³/d)', and then aggregate using the first 'Mês/Ano'
 # result_df = df_base.groupby(['CNPJ', 'Capacidade Autorizada (m³/d)']).agg({'Mês/Ano': 'first'})
 
-result_df = pd.read_sql('SELECT COUNT(*) FROM PRODUCAO ', conn1)
+result_df = pd.read_sql('SELECT COUNT(*) FROM Processamento ', conn1)
 
 print(result_df)
 
